@@ -1,0 +1,5 @@
+version: '3.8'
+services:
+  pipelines:
+    environment:
+      - PIPELINES_API_KEY=661d42249b9e12ba7bfbbf01ec117a5e3481794a05c47183df90f1226296a504

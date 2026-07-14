@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # Service 1: Ollama
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama_ottobot
+  #   ports:
+  #     - "127.0.0.1:11434:11434"  # Bound to localhost only for security
+  #   volumes:
+  #     - ollama_storage:/root/.ollama
+  #   restart: always
+  #   networks:
+  #     - openwebui-net   # <--- JOIN THE NETWORK
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+  # Service 2: Open WebUI
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "127.0.0.1:3129:8080"  # Bound to localhost only for security
+    volumes:
+      - open-webui_storage:/app/backend/data
+    environment:
+      # Now we can talk to Ollama using its container name directly!
+      - OLLAMA_BASE_URL=http://ollama_ottobot:11434
+      # Security settings
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-}
+      - WEBUI_AUTH=${WEBUI_AUTH:-true}
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
+      - DEFAULT_USER_ROLE=${DEFAULT_USER_ROLE:-pending}  # New users need admin approval
+      - WEBUI_SESSION_COOKIE_SECURE=${WEBUI_SESSION_COOKIE_SECURE:-false}
+      - WEBUI_SESSION_COOKIE_SAME_SITE=${WEBUI_SESSION_COOKIE_SAME_SITE:-lax}
+      # Rate limiting
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-false}
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=${RATE_LIMIT_REQUESTS_PER_MINUTE:-20}
+      # Disable features that may leak data in public deployment
+      - ENABLE_COMMUNITY_SHARING=${ENABLE_COMMUNITY_SHARING:-false}
+      - SAFE_MODE=${SAFE_MODE:-false}
+    # depends_on:
+    #   - ollama
+    restart: unless-stopped
+    networks:
+      - openwebui-net   # <--- JOIN THE NETWORK
+
+  # Pipelines service for RAG
+  pipelines:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipelines
+    image: ottobot-pipelines:local
+    container_name: pipelines
+    ports:
+      - "127.0.0.1:9099:9099"  # Bound to localhost only for security
+    volumes:
+      - pipelines:/app/pipelines
+    environment:
+      - PIPELINES_API_KEY=${PIPELINES_API_KEY:-}
+    restart: unless-stopped
+    networks:
+      - openwebui-net
+
+volumes:
+  # ollama_storage:
+  open-webui_storage:
+  pipelines:
+
+# Define the external network so Compose knows it already exists
+networks:
+  openwebui-net:
+    driver: bridge

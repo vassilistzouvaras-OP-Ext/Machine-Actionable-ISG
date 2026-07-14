@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  open-webui:
+    ports:
+      - "0.0.0.0:3132:8080"
+    environment:
+      - WEBUI_SECRET_KEY=e4944a2c1794cfc73a223a6851145a48a0540527f17928cb9aba053f70b1a7d2
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=true
+      - ENABLE_LOGIN_FORM=true
+      - DEFAULT_USER_ROLE=user
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=10
+      - ENABLE_COMMUNITY_SHARING=false
+      - SAFE_MODE=true
+      - OLLAMA_BASE_URL=http://ollama_ottobot:11434
+
+  pipelines:
+    ports:
+      - "0.0.0.0:9100:9099"
+    environment:
+      - PIPELINES_API_KEY=26a6a60742d30373f80c6db4c600b2532a4f9d0f978677ceb10bdcbb5a9ffc1b
+

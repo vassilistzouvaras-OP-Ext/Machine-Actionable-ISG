@@ -1,0 +1,98 @@
+================================================================================
+OTTOBOT - SYSTEM REQUIREMENTS
+================================================================================
+
+This document lists the system packages and dependencies required to run the
+Hybrid RAG Pipeline with GPU acceleration in Docker containers.
+
+================================================================================
+CORE REQUIREMENTS
+================================================================================
+
+1. DOCKER ENGINE
+   - Package: docker-ce or docker.io
+   - Minimum Version: 20.10+
+   - Tested Version: 28.2.2
+   - Purpose: Container runtime for Ollama, Open WebUI, and Pipelines
+   - Installation: https://docs.docker.com/engine/install/
+
+2. DOCKER COMPOSE
+   - Package: docker-compose or docker-compose-plugin
+   - Minimum Version: 2.0+
+   - Tested Version: 2.37.1
+   - Purpose: Multi-container orchestration for Ollama and Open WebUI
+   - Installation: Usually included with Docker Desktop or Docker Engine
+
+================================================================================
+GPU ACCELERATION (REQUIRED FOR OLLAMA)
+================================================================================
+
+NOTE: Ollama does NOT need to be installed on the host system. It runs inside
+      a Docker container (ollama/ollama:latest). However, GPU access requires
+      NVIDIA drivers and the NVIDIA Container Toolkit on the host.
+
+3. NVIDIA DRIVERS
+   - Package: nvidia-driver-XXX (e.g., nvidia-driver-550)
+   - Minimum Version: 525.60.13+ (for CUDA 12.0+)
+   - Tested Version: 580.95.05
+   - Purpose: GPU drivers for NVIDIA graphics cards
+   - Installation: 
+     Ubuntu/Debian: sudo apt install nvidia-driver-XXX
+     Verify: nvidia-smi
+
+4. NVIDIA CONTAINER TOOLKIT
+   - Package: nvidia-container-toolkit
+   - Minimum Version: 1.13.0+
+   - Tested Version: 1.18.1-1
+   - Purpose: Enables Docker containers to access NVIDIA GPUs
+   - Installation:
+     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+     curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+     curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
+       sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+     sudo apt update
+     sudo apt install nvidia-container-toolkit
+     sudo systemctl restart docker
+   - Verify: docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi
+
+IMPORTANT: If you have Ollama installed on your host system (port 11434), you must
+           stop/disable it to avoid port conflicts with the Docker container:
+           sudo systemctl stop ollama
+           sudo systemctl disable ollama
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+1. "nvidia-smi" not found:
+   - Install NVIDIA drivers: sudo apt install nvidia-driver-550
+   - Reboot system
+
+2. Docker can't access GPU:
+   - Install nvidia-container-toolkit (see installation above)
+   - Restart Docker: sudo systemctl restart docker
+   - Verify: docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi
+
+3. Port conflicts (3000, 9099, 11434):
+   - Check what's using the port: sudo lsof -i :3000
+   - Stop conflicting service or change port in docker-compose.yaml
+
+4. Permission denied errors:
+   - Add user to docker group: sudo usermod -aG docker $USER
+   - Log out and log back in
+
+5. Out of memory errors:
+   - Increase Docker memory limit in Docker Desktop settings
+   - Or use smaller models (e.g., mistral-7b instead of mixtral-8x7b)
+
+================================================================================
+REFERENCES
+================================================================================
+
+Docker: https://docs.docker.com/
+NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+Ollama: https://ollama.ai/
+Open WebUI: https://github.com/open-webui/open-webui
+Pipelines: https://github.com/open-webui/pipelines
+
+================================================================================

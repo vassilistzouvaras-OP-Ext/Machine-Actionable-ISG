@@ -1,0 +1,12 @@
+torch
+sentence-transformers
+langchain
+langchain-community
+langchain-huggingface
+langchain-text-splitters
+langchain-core
+faiss-cpu
+rank_bm25
+pypdf
+openai
+accelerate

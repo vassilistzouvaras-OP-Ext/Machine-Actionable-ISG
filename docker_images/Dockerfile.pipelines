@@ -1,0 +1,22 @@
+FROM ghcr.io/open-webui/pipelines:main
+
+# CPU image. The deployer selects this when no Docker-accessible CUDA GPU is found.
+RUN pip uninstall -y torch torchvision torchaudio torch-cpu || true && \
+    pip cache purge && \
+    pip install --no-cache-dir --force-reinstall \
+    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir \
+    sentence-transformers \
+    langchain \
+    langchain-community \
+    langchain-huggingface \
+    langchain-text-splitters \
+    langchain-core \
+    faiss-cpu \
+    rank_bm25 \
+    pypdf \
+    openai \
+    accelerate \
+    "mineru[all]"
+
+RUN python -c "import torch; print('Torch version:', torch.__version__); print('CUDA available:', torch.cuda.is_available())"

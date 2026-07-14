@@ -1,0 +1,34 @@
+FROM ghcr.io/open-webui/pipelines:main
+
+# CUDA image. This variant is pinned to a Pascal-compatible PyTorch build so
+# cards like the GTX 1080 (sm_61) can still run on GPU.
+ARG TORCH_VERSION=2.3.1
+ARG TORCHVISION_VERSION=0.18.1
+ARG TORCHAUDIO_VERSION=2.3.1
+ARG PYTORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu118
+
+RUN pip uninstall -y \
+    torch torchvision torchaudio torch-cpu \
+    vllm xformers flashinfer-python compressed-tensors xgrammar || true && \
+    pip cache purge && \
+    pip install --no-cache-dir --force-reinstall \
+    "numpy<2.3" \
+    "torch==${TORCH_VERSION}" \
+    "torchvision==${TORCHVISION_VERSION}" \
+    "torchaudio==${TORCHAUDIO_VERSION}" \
+    --index-url "${PYTORCH_CUDA_INDEX}" && \
+    pip install --no-cache-dir \
+    sentence-transformers \
+    langchain \
+    langchain-community \
+    langchain-huggingface \
+    langchain-text-splitters \
+    langchain-core \
+    faiss-cpu \
+    rank_bm25 \
+    pypdf \
+    openai \
+    accelerate \
+    mineru
+
+RUN python -c "import torch; print('Torch version:', torch.__version__); print('Torch CUDA:', torch.version.cuda); print('CUDA available at build:', torch.cuda.is_available()); print('Torch arch list:', getattr(torch.cuda, 'get_arch_list', lambda: [])())"

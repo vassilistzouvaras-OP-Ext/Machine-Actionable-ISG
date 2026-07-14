@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+.deployments/
+
+# Security - DO NOT COMMIT
+docker_backups/
+docker_images/.env
+*.pem
+*.key
+*_secret*
+*_api_key*
+ollama_storage
+openwebui_storage/
+pipelines_backup/
+backups/

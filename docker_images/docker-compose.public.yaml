@@ -1,0 +1,37 @@
+# ============================================================================
+# Public Deployment Override
+# Usage: docker compose -f ottobot_docker.yaml -f docker-compose.public.yaml up -d
+# ============================================================================
+
+version: '3.8'
+
+services:
+  open-webui:
+    ports:
+      - "127.0.0.1:3129:8080"  # Keep localhost - use reverse proxy for public access
+    environment:
+      # Override with secure settings
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=true
+      - DEFAULT_USER_ROLE=pending
+      - WEBUI_SESSION_COOKIE_SECURE=true
+      - WEBUI_SESSION_COOKIE_SAME_SITE=strict
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=20
+      - ENABLE_COMMUNITY_SHARING=false
+      - SAFE_MODE=true
+    labels:
+      # Traefik labels (if using Traefik as reverse proxy)
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+      # Security headers
+      - "traefik.http.middlewares.openwebui-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.openwebui-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.openwebui-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.openwebui-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.openwebui-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.openwebui-headers.headers.contentSecurityPolicy=default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      - "traefik.http.routers.openwebui.middlewares=openwebui-headers"
