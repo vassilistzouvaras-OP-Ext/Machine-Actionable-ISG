@@ -43,7 +43,7 @@ def _safe_filename(value: str) -> str:
     return f"document_{digest}"
 
 
-class HTMLIngest:
+class INGEST:
     def __init__(
         self,
         html_dir: str = "html_files",
@@ -332,7 +332,7 @@ def main() -> None:
     parser.add_argument("--show-browser", action="store_true", help="Run Playwright in non-headless mode.")
     args = parser.parse_args()
 
-    ingest = HTMLIngest(
+    ingest = INGEST(
         html_dir=args.html_dir,
         output_dir=args.output_dir,
         recursive=not args.no_recursive,
