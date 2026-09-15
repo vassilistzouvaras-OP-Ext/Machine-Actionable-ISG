@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 .deployments/
+Ottoman-NewENG-2024print2.pdf
 
 # Security - DO NOT COMMIT
 docker_backups/
@@ -10,7 +11,12 @@ docker_images/.env
 *.key
 *_secret*
 *_api_key*
+naive_chunks.jsonl
+naive_chunks.md
+puretext_chunks.jsonl
+puretext_chunks.md
 ollama_storage
 openwebui_storage/
 pipelines_backup/
+Old_SearchCultureBot.py
 backups/

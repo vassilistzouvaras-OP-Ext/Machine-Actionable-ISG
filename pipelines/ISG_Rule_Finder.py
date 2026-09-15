@@ -128,7 +128,7 @@ class Pipeline:
     class Valves(BaseModel):
         OPENAI_API_KEY: str = Field(default=os.getenv("OPENAI_API_KEY", ""))
         OPENAI_BASE_URL: str = Field(default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
-        OPENAI_MODEL: str = Field(default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+        OPENAI_MODEL: str = Field(default=os.getenv("OPENAI_MODEL", "gpt-5.5"))
 
         HTML_DIRS: str = Field(default=os.getenv("HTML_DIRS", "/app/sources/html_files"))
         INGESTED_DATA_DIR: str = Field(default=os.getenv("INGESTED_DATA_DIR", "/app/pipelines/ingested_data_html"))
@@ -392,14 +392,8 @@ class Pipeline:
                     except json.JSONDecodeError:
                         continue
                         
-                    # Υποστήριξη για table_markdown_path από τα νέα JSONL του HTML ingest
                     metadata = dict(chunk.get("metadata") or {})
                     text = (chunk.get("text") or chunk.get("content") or "").strip()
-                    
-                    if metadata.get("chunk_type") == "table" and metadata.get("table_markdown_path"):
-                        md_path = Path(metadata["table_markdown_path"])
-                        if md_path.exists():
-                            text = md_path.read_text(encoding="utf-8")
                             
                     if not text:
                         continue
@@ -555,7 +549,7 @@ class Pipeline:
 
     def _rerank_with_openai(self, query: str, candidates: List[Document]) -> List[Document]:
         """Ask a cheap OpenAI chat model to rank candidates, instead of a local CrossEncoder."""
-        snippets = [f"[{idx}] {doc.page_content.strip()[:400].replace(chr(10), ' ')}" for idx, doc in enumerate(candidates)]
+        snippets = [f"[{idx}] {doc.page_content.strip()[:4000].replace(chr(10), ' ')}" for idx, doc in enumerate(candidates)]
         prompt = (
             f"Question:\n{query}\n\nPassages:\n"
             + "\n\n".join(snippets)
@@ -640,17 +634,25 @@ class Pipeline:
         for index, doc in enumerate(docs, start=1):
             header = f"Source S{index}: {self._source_label(doc)}"
             
-            # Ενσωμάτωση CSS Metadata
             meta_str = ""
+            
+            heading_path = doc.metadata.get("heading_path")
+            heading_str = ""
+            if heading_path and isinstance(heading_path, list):
+                heading_str = f" [Section: {' > '.join(heading_path)}]"
+
             html_tag = doc.metadata.get("html_tag")
             styling = doc.metadata.get("styling")
+            css_str = ""
             if html_tag and styling:
                 css_props = []
                 for k, v in styling.items():
                     if v and v != "none" and v != "rgba(0, 0, 0, 0)":
                         css_props.append(f"{k}: {v}")
                 if css_props:
-                    meta_str = f" [HTML_TAG: {html_tag} | CSS: {'; '.join(css_props)}]"
+                    css_str = f" [HTML_TAG: {html_tag} | CSS: {'; '.join(css_props)}]"
+            
+            meta_str = heading_str + css_str
             
             text = doc.page_content.strip()
             remaining = max_chars - used_chars - len(header) - len(meta_str) - 8
@@ -710,7 +712,7 @@ Return JSON only:
         
         styling_rule = ""
         if self.valves.APPLY_HTML_STYLING:
-            styling_rule = "- IMPORTANT STYLING RULE: You MUST format your response using HTML. Look at the metadata brackets in the retrieved context (e.g., [HTML_TAG: p | CSS_COLOR: rgb(...) | ...]). You must apply the exact CSS properties from the source as inline styles to your output elements. Never use standard markdown bold/italics. Example format: <p style=\"color: rgb(0,0,0); font-family: Arial;\">Your text here.</p>\n"
+            styling_rule = "- IMPORTANT STYLING RULE: You MUST wrap your entire final response inside a specific markdown artifact block for HTML rendering. The format MUST be exactly like this:\n\n:::artifact{identifier=\"isg-answer\" type=\"text/html\" title=\"HTML Response\"}\n<div style=\"...css...\">Your styled text here</div>\n:::\n\nApply the exact CSS properties from the source metadata as inline styles inside this block. Do not output anything outside of this block.\n"
 
         return f"""Use the retrieved context below to answer the user's question.
 

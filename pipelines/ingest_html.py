@@ -142,8 +142,12 @@ class INGEST:
                         }
                     });
 
-                    let elements = bestContainer.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, table');
+                    let elements = bestContainer.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, table, blockquote, dl, dt, dd, pre, code, figure, figcaption, details, summary');
                     let extractedTexts = new Set();
+
+                    let currentH1 = null;
+                    let currentH2 = null;
+                    let currentH3 = null;
 
                     elements.forEach((el) => {
                         let tag = el.tagName.toLowerCase();
@@ -154,13 +158,19 @@ class INGEST:
                         if (tag === 'p' && el.closest('li')) return;
                         if (extractedTexts.has(text)) return;
 
+                        if (tag === 'h1') { currentH1 = text; currentH2 = null; currentH3 = null; }
+                        else if (tag === 'h2') { currentH2 = text; currentH3 = null; }
+                        else if (tag === 'h3' || tag === 'h4') { currentH3 = text; }
+                        
+                        let headingPath = [currentH1, currentH2, currentH3].filter(Boolean);
+
                         if (tag !== 'table') {
                             let linkTextLen = 0;
                             el.querySelectorAll('a').forEach(a => {
                                 linkTextLen += a.textContent.trim().replace(/\s+/g, ' ').length;
                             });
                             
-                            let maxDensity = (tag === 'li') ? 0.85 : 0.50;
+                            let maxDensity = 0.95;
                             if ((linkTextLen / text.length) > maxDensity) return;
                         }
 
@@ -194,6 +204,7 @@ class INGEST:
                                     tag: 'table',
                                     text: text,
                                     table_rows: tableRows,
+                                    heading_path: headingPath,
                                     styling: styling
                                 });
                             }
@@ -201,6 +212,7 @@ class INGEST:
                             data.push({
                                 tag: tag,
                                 text: text,
+                                heading_path: headingPath,
                                 styling: styling
                             });
                         }
@@ -273,13 +285,22 @@ class INGEST:
 
         return files
 
+    def _chunk_text(self, text: str, chunk_size: int = 3000, overlap: int = 200) -> List[str]:
+        if len(text) <= chunk_size:
+            return [text]
+        chunks = []
+        step = chunk_size - overlap
+        for start in range(0, len(text), step):
+            chunks.append(text[start : start + chunk_size])
+            if start + chunk_size >= len(text):
+                break
+        return chunks
+
     def _build_chunks(self, html_path: Path, doc_key: str, raw_blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         chunks: List[Dict[str, Any]] = []
         
         for index, block in enumerate(raw_blocks):
-            chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
             tag = block["tag"]
-            
             chunk_type = "table" if tag == "table" else ("heading" if tag.startswith("h") else "text")
             
             chunk_metadata = {
@@ -288,22 +309,72 @@ class INGEST:
                 "parser": "playwright_custom_density",
                 "chunk_type": chunk_type,
                 "html_tag": tag,
+                "heading_path": block.get("heading_path", []),
                 "styling": block["styling"],
                 "embed": True
             }
 
             if tag == "table":
+                base_chunk_id = f"{doc_key}:table_{index:05d}"
                 rows = block.get("table_rows", [])
-                table_files = self._write_table_files(doc_key, chunk_id, rows)
+                table_files = self._write_table_files(doc_key, base_chunk_id, rows)
                 chunk_metadata["table_csv_path"] = table_files.get("csv_path")
                 chunk_metadata["table_markdown_path"] = table_files.get("markdown_path")
-            
-            chunks.append({
-                "id": chunk_id,
-                "text": block["text"],
-                "content": block["text"],
-                "metadata": chunk_metadata,
-            })
+                
+                if not rows or len(rows) < 2:
+                    text_pieces = self._chunk_text(block["text"], chunk_size=3000, overlap=200)
+                else:
+                    headers = rows[0]
+                    text_pieces = []
+                    
+                    current_subsection = "" 
+                    
+                    for row in rows[1:]:
+                        current_row = list(row)
+                        
+                        while len(current_row) > len(headers) and current_row[0].strip() == "":
+                            current_row.pop(0)
+                            
+                        clean_elements = [c for c in current_row if c.strip() != ""]
+                        
+                        if len(clean_elements) == 1:
+                            current_subsection = clean_elements[0].strip()
+                            text_pieces.append(f"Sub-section: {current_subsection}")
+                            continue
+                            
+                        row_pairs = []
+                        
+                        if current_subsection:
+                            row_pairs.append(f"Sub-section: {current_subsection}")
+
+                        for i, cell_val in enumerate(current_row):
+                            if cell_val.strip() == "":
+                                continue
+                            header_val = headers[i] if i < len(headers) else f"Column_{i+1}"
+                            row_pairs.append(f"{header_val.strip()}: {cell_val.strip()}")
+                        
+                        row_str = " | ".join(row_pairs)
+                        if row_str:
+                            text_pieces.append(row_str.strip())
+
+                for piece in text_pieces:
+                    chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
+                    chunks.append({
+                        "id": chunk_id,
+                        "text": piece,
+                        "content": piece,
+                        "metadata": chunk_metadata,
+                    })
+            else:
+                text_pieces = self._chunk_text(block["text"], chunk_size=3000, overlap=200)
+                for piece in text_pieces:
+                    chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
+                    chunks.append({
+                        "id": chunk_id,
+                        "text": piece,
+                        "content": piece,
+                        "metadata": chunk_metadata,
+                    })
             
         return chunks
 

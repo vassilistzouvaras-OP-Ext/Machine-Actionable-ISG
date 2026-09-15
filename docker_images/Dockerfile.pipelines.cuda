@@ -29,6 +29,15 @@ RUN pip uninstall -y \
     pypdf \
     openai \
     accelerate \
-    mineru
+    mineru \
+    playwright
+
+RUN echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99bypass && \
+    echo 'Acquire::AllowDowngradeToInsecureRepositories "true";' >> /etc/apt/apt.conf.d/99bypass && \
+    echo 'Acquire::Check-Valid-Until "false";' >> /etc/apt/apt.conf.d/99bypass && \
+    echo 'APT::Get::AllowUnauthenticated "true";' >> /etc/apt/apt.conf.d/99bypass && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN playwright install --with-deps chromium
 
 RUN python -c "import torch; print('Torch version:', torch.__version__); print('Torch CUDA:', torch.version.cuda); print('CUDA available at build:', torch.cuda.is_available()); print('Torch arch list:', getattr(torch.cuda, 'get_arch_list', lambda: [])())"
