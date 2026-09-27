@@ -7,6 +7,10 @@ ARG TORCHVISION_VERSION=0.18.1
 ARG TORCHAUDIO_VERSION=2.3.1
 ARG PYTORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu118
 
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib:${LD_LIBRARY_PATH}
+RUN ln -sf /usr/local/lib/python3.11/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so.11.2 \
+           /usr/local/lib/python3.11/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so
+
 RUN pip uninstall -y \
     torch torchvision torchaudio torch-cpu \
     vllm xformers flashinfer-python compressed-tensors xgrammar || true && \
@@ -18,6 +22,8 @@ RUN pip uninstall -y \
     "torchaudio==${TORCHAUDIO_VERSION}" \
     --index-url "${PYTORCH_CUDA_INDEX}" && \
     pip install --no-cache-dir \
+    "transformers>=4.38.0" \
+    "tokenizers>=0.21,<0.22" \
     sentence-transformers \
     langchain \
     langchain-community \
@@ -30,6 +36,8 @@ RUN pip uninstall -y \
     openai \
     accelerate \
     mineru \
+    ftfy \
+    pyclipper \
     playwright
 
 RUN echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99bypass && \
