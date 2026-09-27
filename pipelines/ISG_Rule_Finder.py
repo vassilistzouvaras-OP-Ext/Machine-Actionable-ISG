@@ -150,11 +150,11 @@ class Pipeline:
         )
         REBUILD_VECTOR_STORE: bool = Field(default=False)
 
-        TOP_K: int = Field(default=15)
-        CANDIDATES_K: int = Field(default=40)
+        TOP_K: int = Field(default=30)
+        CANDIDATES_K: int = Field(default=80)
         FUSION_ALPHA: float = Field(default=0.55)
         MAX_ITERATIONS: int = Field(default=3)
-        CONTEXT_CHAR_LIMIT: int = Field(default=60000)
+        CONTEXT_CHAR_LIMIT: int = Field(default=90000)
         MAX_QUERY_LENGTH: int = Field(default=int(os.getenv("MAX_QUERY_LENGTH", "12000")))
         TEMPERATURE: float = Field(default=0.2)
         SEED: int = Field(default=42)
@@ -640,6 +640,10 @@ class Pipeline:
             heading_str = ""
             if heading_path and isinstance(heading_path, list):
                 heading_str = f" [Section: {' > '.join(heading_path)}]"
+
+            subsection = doc.metadata.get("subsection")
+            if subsection:
+                heading_str += f" [Sub-section: {subsection}]"
 
             html_tag = doc.metadata.get("html_tag")
             styling = doc.metadata.get("styling")

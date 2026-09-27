@@ -151,7 +151,7 @@ class INGEST:
 
                     elements.forEach((el) => {
                         let tag = el.tagName.toLowerCase();
-                        let text = el.textContent.trim().replace(/\s+/g, ' ');
+                        let text = el.innerText.trim().replace(/\s+/g, ' ');
 
                         if (text.length < 5) return;
                         if (tag !== 'table' && el.closest('table')) return;
@@ -323,9 +323,18 @@ class INGEST:
                 
                 if not rows or len(rows) < 2:
                     text_pieces = self._chunk_text(block["text"], chunk_size=3000, overlap=200)
+                    for piece in text_pieces:
+                        chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
+                        chunks.append({
+                            "id": chunk_id,
+                            "text": piece,
+                            "content": piece,
+                            "metadata": chunk_metadata,
+                        })
+                
                 else:
                     headers = rows[0]
-                    text_pieces = []
+                    piece_objs = [] 
                     
                     current_subsection = "" 
                     
@@ -336,16 +345,21 @@ class INGEST:
                             current_row.pop(0)
                             
                         clean_elements = [c for c in current_row if c.strip() != ""]
+                        if not clean_elements:
+                            continue
                         
                         if len(clean_elements) == 1:
-                            current_subsection = clean_elements[0].strip()
-                            text_pieces.append(f"Sub-section: {current_subsection}")
+                            single_cell_text = clean_elements[0].strip()
+                            
+                            if "see " in single_cell_text.lower():
+                                note_str = f"Note: {single_cell_text}"
+                                piece_objs.append({"text": note_str, "subsection": current_subsection})
+                                continue
+                        
+                            current_subsection = single_cell_text
                             continue
                             
                         row_pairs = []
-                        
-                        if current_subsection:
-                            row_pairs.append(f"Sub-section: {current_subsection}")
 
                         for i, cell_val in enumerate(current_row):
                             if cell_val.strip() == "":
@@ -355,7 +369,21 @@ class INGEST:
                         
                         row_str = " | ".join(row_pairs)
                         if row_str:
-                            text_pieces.append(row_str.strip())
+                            piece_objs.append({"text": row_str.strip(), "subsection": current_subsection})
+
+                    for p_obj in piece_objs:
+                        chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
+                        
+                        piece_meta = chunk_metadata.copy()
+                        if p_obj["subsection"]:
+                            piece_meta["subsection"] = p_obj["subsection"]
+                            
+                        chunks.append({
+                            "id": chunk_id,
+                            "text": p_obj["text"],
+                            "content": p_obj["text"],
+                            "metadata": piece_meta,
+                        })
 
                 for piece in text_pieces:
                     chunk_id = f"{doc_key}:{len(chunks) + 1:05d}"
